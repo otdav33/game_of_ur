@@ -22,6 +22,7 @@ struct session {
 };
 
 struct connection {
+    int id;
     struct session *session;
     char side; //'w' or 'b' for which player it is
 };

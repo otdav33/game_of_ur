@@ -48,6 +48,7 @@ struct connection *get_connection() {
         assert(j < global_sessions_len);
     }
     retval = global_connections + i;
+    retval->id = rand();
     retval->session = global_sessions + j;
     if (global_sessions[j].set_up == 0) { 
         retval->side = 'w';
@@ -271,7 +272,7 @@ char *generate(char *query, char *path, int *final_length) {
 "  <h3>You are playing %s</h3>\n"
 "  <h3>It is%s your turn.</h3>\n"
 "  <h3>Current dice roll is %i.</h3>\n"
-"  <h3>Click <a href=\"/?connection=%i\"><button>here</button></a> to check for"
+"  <h3>Click <a href=\"/?connection=%i\">here</a> to check for"
 " updates.</h3>\n"
 "  <table>\n"
 "    <tr>\n"
@@ -380,6 +381,20 @@ char *generate(char *query, char *path, int *final_length) {
 "</head>\n"
 "<body>\n"
 "<h3>Error: position is inputted incorrectly. Error code is ";
+    char connection_incorrect[] = 
+"<!DOCTYPE html>\n"
+"<html>\n"
+"<head>\n"
+"<style>\n"
+"body {\n"
+"  background: #ffecb3;\n"
+"}\n"
+"</style>\n"
+"<meta charset=\"utf-8\" />\n"
+"<title>Game of Ur</title>\n"
+"</head>\n"
+"<body>\n"
+"<h3>Error: connection is inputted incorrectly. Error code is ";
     char internal_error[] = 
 "<!DOCTYPE html>\n"
 "<html>\n"
@@ -407,7 +422,7 @@ char *generate(char *query, char *path, int *final_length) {
 "<title>Game of Ur</title>\n"
 "</head>\n"
 "<body>\n"
-"<h3>Click <a href=\"/make_match\"><button>here</button></a> to start a game "
+"<h3>Click <a href=\"/make_match\">here</a> to start a game "
     "with a random person.</h3>\n"
 "</body>\n"
 "</html>\n";
@@ -494,9 +509,8 @@ char *generate(char *query, char *path, int *final_length) {
         if (conn->side == 'w') {
             size_t tsize = sizeof(waiting) + 2 * 14;
             char *t = alloca(tsize);
-            size_t connum = conn - global_connections;
             //we are the first to connect
-            int errcode = snprintf(t, tsize, waiting, connum, connum);
+            int errcode = snprintf(t, tsize, waiting, conn->id, conn->id);
             if (errcode < 0 || errcode > tsize) {
                 stradd(buf, bufend, buflen, internal_error,
                         sizeof(internal_error));
@@ -534,11 +548,20 @@ char *generate(char *query, char *path, int *final_length) {
             char *endptr = NULL;
             errno = 0;
             int conno = strtol(constr, &endptr, 10);
-            conn = global_connections + conno;
+            for (i = 0; i < global_sessions_len * 2; i++) {
+#ifdef DEBUG
+                printf("gcid[%i] = %i, conno = %i\n", i,
+                        global_connections[i].id, conno);
+#endif
+                if (global_connections[i].id == conno) {
+                    conn = global_connections + i;
+                    break;
+                }
+            }
 #ifdef DEBUG
             printf("constr errno is %i\n", errno);
 #endif
-            if (errno || conno < 0 || conno > global_sessions_len * 2 ||
+            if (errno || i == global_sessions_len * 2 ||
                     constr[0] == '\0' || *endptr != '\0'
                     || (conn->side != 'w' && conn->side != 'b')) {
                 //exit gracefully on error
@@ -560,12 +583,10 @@ char *generate(char *query, char *path, int *final_length) {
                                 strnlen(temp, sizeof(temp)) + 1);
                     }
                 } else {
-                    char too_low_error[] =
-                        "<p>Error: connection number inputted incorrectly."
-                        "</p>\n";
-                    printf("%s, %s, %i\n", posstr, endptr, *endptr);
-                    stradd(buf, bufend, buflen, too_low_error,
-                            sizeof(too_low_error));
+                    printf("%s, %i, %i, %c\n", constr, *endptr,
+                            i == global_sessions_len * 2, conn->side);
+                    stradd(buf, bufend, buflen, connection_incorrect,
+                            sizeof(connection_incorrect));
                 }
                 stradd(buf, bufend, buflen, end_bit, sizeof(end_bit));
                 *final_length = bufend;
@@ -729,7 +750,7 @@ char *generate(char *query, char *path, int *final_length) {
     }
 
     errcode = snprintf(board_template, bsize, template,
-            color, is_turn, conn->session->roll, conn - global_connections,
+            color, is_turn, conn->session->roll, conn->id,
             tfgp[0 ], tfgp[1 ], tfgp[2 ], tfgp[3 ], tfgp[4 ], tfgp[5 ],
             tfgp[6 ], tfgp[7 ], tfgp[8 ], tfgp[9 ], tfgp[10], tfgp[11],
             tfgp[12], tfgp[13], tfgp[14], tfgp[15], tfgp[16], tfgp[17],
@@ -742,13 +763,13 @@ char *generate(char *query, char *path, int *final_length) {
     } else if (conn->side == conn->session->turn) {
         char *board = malloc(bsize);
         int errcode = snprintf(board, bsize, board_template,
-                conn - global_connections, pindexes[0],
-                conn - global_connections, pindexes[1],
-                conn - global_connections, pindexes[2],
-                conn - global_connections, pindexes[3],
-                conn - global_connections, pindexes[4],
-                conn - global_connections, pindexes[5],
-                conn - global_connections, pindexes[6]);
+                conn->id, pindexes[0],
+                conn->id, pindexes[1],
+                conn->id, pindexes[2],
+                conn->id, pindexes[3],
+                conn->id, pindexes[4],
+                conn->id, pindexes[5],
+                conn->id, pindexes[6]);
         if (errcode < 0 || errcode > bsize) {
             stradd(buf, bufend, buflen, internal_error, sizeof(internal_error));
             printf("error %i for snprintf #4\n", errcode);
