@@ -272,8 +272,11 @@ char *generate(char *query, char *path, int *final_length) {
 "  <h3>You are playing %s</h3>\n"
 "  <h3>It is%s your turn.</h3>\n"
 "  <h3>Current dice roll is %i.</h3>\n"
-"  <h3>Click <a href=\"/?connection=%i\">here</a> to check for"
-" updates.</h3>\n"
+"  <form method=\"post\" action=\"/\">\n"
+"  <input type=\"hidden\" name=\"connection\" value=\"%i\">\n"
+"  <h3>Click <input type=\"submit\" value=\"here\"> to check for "
+"updates.</h3>\n"
+"  </form>\n"
 "  <table>\n"
 "    <tr>\n"
 "      <td class=\"noborder\">%s</td>\n"
@@ -350,7 +353,7 @@ char *generate(char *query, char *path, int *final_length) {
 "  </table>\n"
 "</body>\n"
 "</html>\n";
-    char end_bit[] = "</p></body></html>\n\n";
+    char end_bit[] = "</body></html>\n\n";
     char position_invalid[] =
 "<!DOCTYPE html>\n"
 "<html>\n"
@@ -380,7 +383,26 @@ char *generate(char *query, char *path, int *final_length) {
 "<title>Game of Ur</title>\n"
 "</head>\n"
 "<body>\n"
-"<h3>Error: position is inputted incorrectly. Error code is ";
+"<h3>Error: position is inputted incorrectly.</h3>";
+"</body>\n"
+"</html>\n";
+char too_low_error[] =
+"<!DOCTYPE html>\n"
+"<html>\n"
+"<head>\n"
+"<style>\n"
+"body {\n"
+"  background: #ffecb3;\n"
+"}\n"
+"</style>\n"
+"<meta charset=\"utf-8\" />\n"
+"<title>Game of Ur</title>\n"
+"</head>\n"
+"<body>\n"
+"<h3>Error: position is inputted incorrectly. Please set it to more than or "
+"equal to 0, but less than 20.</h3>\n";
+"</body>\n"
+"</html>\n";
     char connection_incorrect[] = 
 "<!DOCTYPE html>\n"
 "<html>\n"
@@ -394,7 +416,9 @@ char *generate(char *query, char *path, int *final_length) {
 "<title>Game of Ur</title>\n"
 "</head>\n"
 "<body>\n"
-"<h3>Error: connection is inputted incorrectly. Error code is ";
+"<h3>Error: connection is inputted incorrectly.</h3>";
+"</body>\n"
+"</html>\n";
     char internal_error[] = 
 "<!DOCTYPE html>\n"
 "<html>\n"
@@ -422,6 +446,26 @@ char *generate(char *query, char *path, int *final_length) {
 "<title>Game of Ur</title>\n"
 "</head>\n"
 "<body>\n"
+"<h3>If you haven't played before, you can watch "
+"<a href=\"https://www.youtube.com/watch?v=WZskjLq040I\">this</a> youtube "
+"video or read these instructions I wrote:</h3>\n"
+"<p>At the beginning of your turn, you roll four dice that each have a "
+"50/50 chance of rolling a one or a zero (essentially coins). You add up those "
+"rolls, and that number is how far you get to move your piece. (This "
+"implementation of the game rolls for you.)</p>\n"
+"<p>You move one of your seven pieces that number of spaces by clicking on it. "
+"If you land on a floret, you get to roll again and move again with any "
+"piece.</p>\n"
+"<p>You may not put one of your pieces in the same square as another of your "
+"pieces. If a piece lands on the opponent's piece, the opponent's piece is "
+"sent back to the beginning.</p>"
+"<p>You start at the square three squares below the square on the upper corner "
+"on your side of the board, move up, then to the middle column, then down to "
+"the bottom, then back toward your side, then up. Once you get your piece "
+"past the square above the square in the bottom corner, it has gone to the end."
+"</p>\n"
+"<p>The first person to get all seven of their pieces to the end wins.</p>\n"
+"<br><br>\n"
 "<h3>Click <a href=\"/make_match\">here</a> to start a game "
     "with a random person.</h3>\n"
 "</body>\n"
@@ -479,12 +523,18 @@ char *generate(char *query, char *path, int *final_length) {
 "</html>\n";
     char floret[] = "<img src=\"http://dread.life/pics/game_of_ur/floret.png\""
         " alt=\"floret\"/>";
-    char white[] = "<a href=\"/?connection=%i&p=%i\"><img"
-        " src=\"http://dread.life/pics/game_of_ur/white.png\""
-        " alt=\"white\"/></a>";
-    char black[] = "<a href=\"/?connection=%i&p=%i\"><img"
-        " src=\"http://dread.life/pics/game_of_ur/black.png\""
-        " alt=\"black\"/></a>";
+    char white[] = "<form method=\"post\" action=\"/\">"
+        "<input type=\"hidden\" name=\"connection\" value=\"%i\">"
+        "<input type=\"hidden\" name=\"p\" value=\"%i\">"
+        "<input type=\"image\" alt=\"white\""
+        " src=\"http://dread.life/pics/game_of_ur/white.png\">"
+        "</form>";
+    char black[] = "<form method=\"post\" action=\"/\">"
+        "<input type=\"hidden\" name=\"connection\" value=\"%i\">"
+        "<input type=\"hidden\" name=\"p\" value=\"%i\">"
+        "<input type=\"image\" alt=\"black\""
+        " src=\"http://dread.life/pics/game_of_ur/black.png\">"
+        "</form>";
     char white_nolink[] = "<img"
         " src=\"http://dread.life/pics/game_of_ur/white.png\" alt=\"white\"/>";
     char black_nolink[] = "<img"
@@ -566,29 +616,10 @@ char *generate(char *query, char *path, int *final_length) {
                     || (conn->side != 'w' && conn->side != 'b')) {
                 //exit gracefully on error
                 if (errno) {
-                    char temp[32];
-                    int errcode;
-                    stradd(buf, bufend, buflen, position_error,
-                            sizeof(position_error));
-                    errcode = snprintf(temp, sizeof(temp), "\"%i\"</h3>\n",
-                            errno);
-                    if (errcode < 0 || errcode > sizeof(temp)) {
-                        char err_error[] =
-                            "<p>Error: Error #1 has its own error.</p>";
-                        stradd(buf, bufend, buflen, err_error,
-                                sizeof(err_error));
-                        printf("error %i for snprintf #1\n", errcode);
-                    } else {
-                        stradd(buf, bufend, buflen, temp,
-                                strnlen(temp, sizeof(temp)) + 1);
-                    }
-                } else {
-                    printf("%s, %i, %i, %c\n", constr, *endptr,
-                            i == global_sessions_len * 2, conn->side);
-                    stradd(buf, bufend, buflen, connection_incorrect,
-                            sizeof(connection_incorrect));
+                    printf("position error: %i\n", errno);
                 }
-                stradd(buf, bufend, buflen, end_bit, sizeof(end_bit));
+                stradd(buf, bufend, buflen, connection_incorrect,
+                        sizeof(connection_incorrect));
                 *final_length = bufend;
                 return realloc(buf, bufend + 1);
             }
@@ -607,31 +638,13 @@ char *generate(char *query, char *path, int *final_length) {
                     *endptr != '\0') {
                 //exit gracefully on error
                 if (errno) {
-                    char temp[32];
-                    int errcode;
+                    printf("position error: %i\n", errno);
                     stradd(buf, bufend, buflen, position_error,
                             sizeof(position_error));
-                    errcode = snprintf(temp, sizeof(temp), "\"%i\"</h3>\n",
-                            errno);
-                    if (errcode < 0 || errcode > sizeof(temp)) {
-                        char err_error[] =
-                            "<p>Error: Error #2 has its own error.</p>";
-                        stradd(buf, bufend, buflen, err_error,
-                                sizeof(err_error));
-                        printf("error %i for snprintf #2\n", errcode);
-                    } else {
-                        stradd(buf, bufend, buflen, temp,
-                                strnlen(temp, sizeof(temp)) + 1);
-                    }
                 } else {
-                    char too_low_error[] =
-                        "<p>Error: position is inputted incorrectly. "
-                        "Please set it to more than or equal to 0, but less"
-                        "than 20.</p>\n";
                     stradd(buf, bufend, buflen, too_low_error,
                             sizeof(too_low_error));
                 }
-                stradd(buf, bufend, buflen, end_bit, sizeof(end_bit));
                 *final_length = bufend;
                 return realloc(buf, bufend + 1);
             }
