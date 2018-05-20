@@ -468,6 +468,8 @@ char too_low_error[] =
 "<br><br>\n"
 "<h3>Click <a href=\"/make_match\">here</a> to start a game "
     "with a random person.</h3>\n"
+"<p>Someone may have disconnected by mistake or forgotten about their game, so "
+"it is a good idea to play multiple games at once.</p>\n"
 "</body>\n"
 "</html>\n";
     char waiting[] =
